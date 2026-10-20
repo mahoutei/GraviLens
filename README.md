@@ -52,9 +52,10 @@ python -m gravilens generate --config configs/data.yaml --data-root data/pilot \
 ```
 
 Shards are atomic `.npz` files under `data/<root>/<split>/`; rerunning the
-same command resumes. A real triplet costs ~8 s on the current CPU; the
-2,333-triplet train split takes ~5 h. `val` and `test` can run as separate
-concurrent commands and finish much sooner. Inspect a split with:
+same command resumes. A triplet costs ~6 s when its split runs alone (~8 s
+with three splits running concurrently), so the 2,333-triplet train split
+takes ~4 h. `val` and `test` can run as separate concurrent commands and
+finish much sooner. Inspect a split with:
 
 ```bash
 python -m gravilens.dataset --data-root data/gravilens-v2 --split test
@@ -105,7 +106,7 @@ The full grid has **not** been run in this snapshot. No result numbers are
 claimed in this README. When all 21 runs exist:
 
 ```bash
-python -m gravilens audit    # exits non-zero if a run or required field is missing
+python -m gravilens audit    # exits non-zero if a run is missing, a field is absent, or a run used another recipe
 python -m gravilens figures  # writes runs/figures/{main_table.md,summary.json,*.png}
 ```
 

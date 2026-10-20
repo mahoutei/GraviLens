@@ -32,9 +32,10 @@ and `flucs=False`. The main-deflector fluctuation field is therefore disabled;
 this is a limitation, not a claim that the axion model is complete.
 
 Default split sizes are 6,999/1,500/1,500 images (2,333/500/500 triplets).
-The measured CPU cost is ~8.1 s per triplet with three concurrent split
-processes (the pilot was 5.4 s). Shards are atomic `.npz` files named by first
-triplet; rerunning the generator resumes completed shards. A fixed stratified slice of the test split
+The measured CPU cost is ~6 s per triplet when a split runs alone and ~8 s
+with three splits running concurrently (the 3-triplet pilot was 5.4 s). Shards
+are atomic `.npz` files named by first triplet; rerunning the generator
+resumes completed shards. A fixed stratified slice of the test split
 (167 images per class, seed 42, 501 images) is the physics evaluation set; the
 source ground truth is stored for every generated image, so no separate
 folder is needed.
