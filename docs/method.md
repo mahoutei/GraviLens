@@ -115,9 +115,12 @@ model/training config, data root and content fingerprint, parameter count,
 seeds) and `metrics.json` (test metrics, physics slice hash, references). The
 dataset fingerprint (`dataset.fingerprint()`) hashes the array contents and the
 data-defining manifest fields, not the `.npz` container bytes, so two
-independent generations of the same data hash identically. Rendering is
-bit-for-bit deterministic for a given triplet seed: `tests/test_pipeline.py`
-renders a real triplet twice and asserts identical pixels.
+independent generations of the same data hash identically and a copied dataset
+can be verified with one command
+(`python -m gravilens.dataset --split all` prints the fingerprint). Rendering
+is bit-for-bit deterministic for a given triplet seed:
+`tests/test_pipeline.py` renders a real triplet twice and asserts identical
+pixels.
 `python -m gravilens audit` checks all 21 runs, enforces the recipe above
 (epochs, batch size, learning rate, EMA, augmentation, seed) and refuses to
 generate figures from an incomplete grid; `python -m gravilens figures` writes

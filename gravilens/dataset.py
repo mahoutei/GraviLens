@@ -168,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         index = stratified_indices(test.labels, per_class, seed=42)
         print(f"physics slice: {len(index)} images "
               f"({per_class}/class, seed 42) from the test split")
+    print(f"fingerprint: {fingerprint(args.data_root)}")
     return 0
 
 

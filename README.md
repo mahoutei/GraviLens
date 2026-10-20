@@ -64,6 +64,12 @@ python -m gravilens.dataset --data-root data/gravilens-v2 --split all
 `data/` is gitignored. The Galaxy10 selection is `ans == 6` and
 `redshift < 0.02` (58 source galaxies); the same pool is used for every class.
 
+To move the dataset to another machine, tar the shards
+(`tar -cf gravilens-v2.tar -C data gravilens-v2`) and check the copy with
+`python -m gravilens.dataset --data-root <root> --split all`. The fingerprint
+is computed from the array contents, so both copies must print the same value;
+`ablate` refuses to reuse a run trained on a different dataset.
+
 ## Train and evaluate
 
 Training never loads test images or labels; only `evaluate` does, once per run.
