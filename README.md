@@ -2,8 +2,8 @@
 
 Physics-informed lens modelling for dark-matter substructure classification.
 
-**Status:** architecture v2, Phases 0–3. The API and the data format are not
-frozen until Phase 4. The full 21-run ablation has not been executed yet.
+**Status:** architecture v2, Phases 0–5 code complete. The full 21-run
+ablation has not been executed yet; no result numbers are claimed.
 
 ## Install
 
@@ -48,9 +48,9 @@ python -m gravilens generate --config configs/data.yaml --data-root data/pilot \
 ```
 
 Shards are atomic `.npz` files under `data/<root>/<split>/`; rerunning the
-same command resumes. A real triplet costs ~5.4 s on CPU; the full 3,333
-triplets take ~5 h single-process, or less with `train`/`val`/`test` running
-concurrently. Inspect a split with:
+same command resumes. A real triplet costs ~8 s on the current CPU; the
+2,333-triplet train split takes ~5 h. `val` and `test` can run as separate
+concurrent commands and finish much sooner. Inspect a split with:
 
 ```bash
 python -m gravilens.dataset --data-root data/gravilens-v2 --split test
@@ -61,7 +61,9 @@ python -m gravilens.dataset --data-root data/gravilens-v2 --split test
 
 ## Train and evaluate
 
-Training never loads the test split; only `evaluate` does, once per run.
+Training never loads test images or labels; only `evaluate` does, once per run.
+The provenance hash scans all shard bytes, including test, but does not feed
+them to training.
 
 ```bash
 # one run (GPU recommended)
@@ -104,9 +106,9 @@ image -> tokenizer -> physics stack -> theta_E -> differentiable SIS inverse
 ```
 
 `GraviLensP` has four variants: `full`, `no_sup` (theta_E loss weight 0),
-`no_sis` (lensed image replaces the reconstructed source), and `dist`
-(distortion tokens added at the input). `no_sis` differs from `full` in exactly
-one tensor.
+`no_sis` (lensed image replaces the reconstructed source, with no theta_E
+auxiliary loss), and `dist` (distortion tokens added at the input). The
+`no_sis` forward path swaps exactly the source tensor.
 
 ### Model card
 

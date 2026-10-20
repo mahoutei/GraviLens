@@ -56,8 +56,10 @@ says otherwise.
 - The parameter-matched baselines are a tighter comparison than the original
   notebook's 192-dim models, but they are not exhaustively tuned. They use the
   identical recipe and seeds.
-- `no_sis` replaces the reconstructed source with the observed image; it is a
-  one-tensor ablation, not a proof that no physics information exists
+- `no_sis` replaces the reconstructed source with the observed image and also
+  drops the θE auxiliary loss, so `full - no_sis` changes two things at once;
+  `no_sup` isolates the auxiliary loss on its own. The comparison is a
+  forward-path ablation, not a proof that no physics information exists
   elsewhere in the network.
 
 ## Reproducibility

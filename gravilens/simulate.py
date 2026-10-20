@@ -301,6 +301,10 @@ def _git_sha() -> str | None:
         return None
 
 
+# Capture the code snapshot once, not the HEAD at each shard write.
+GIT_SHA_AT_IMPORT = _git_sha()
+
+
 def _atomic_savez(path: Path, **arrays) -> None:
     tmp = path.with_name(path.stem + ".tmp.npz")
     with open(tmp, "wb") as handle:
@@ -329,7 +333,7 @@ def _write_manifest(root: Path, split: str, target_images: int, shard_images: in
         manifest.update({
             "version": 1,
             "sim_version": SIM_VERSION,
-            "git_sha": _git_sha(),
+            "git_sha": GIT_SHA_AT_IMPORT,
             "classes": list(CLASSES),
             "image_size": cfg.image_size,
             "seed": seed,
@@ -411,7 +415,7 @@ def generate_split(split: str, n_images: int, galaxy_pool: np.ndarray,
         meta = {
             "version": 1,
             "sim_version": SIM_VERSION,
-            "git_sha": _git_sha(),
+            "git_sha": GIT_SHA_AT_IMPORT,
             "split": split,
             "start": start,
             "stop": stop,

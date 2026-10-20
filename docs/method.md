@@ -32,9 +32,9 @@ and `flucs=False`. The main-deflector fluctuation field is therefore disabled;
 this is a limitation, not a claim that the axion model is complete.
 
 Default split sizes are 6,999/1,500/1,500 images (2,333/500/500 triplets).
-The measured CPU cost is 5.42 s per triplet with three concurrent split
-processes. Shards are atomic `.npz` files named by first triplet; rerunning the
-generator resumes completed shards. A fixed stratified slice of the test split
+The measured CPU cost is ~8.1 s per triplet with three concurrent split
+processes (the pilot was 5.4 s). Shards are atomic `.npz` files named by first
+triplet; rerunning the generator resumes completed shards. A fixed stratified slice of the test split
 (167 images per class, seed 42, 501 images) is the physics evaluation set; the
 source ground truth is stored for every generated image, so no separate
 folder is needed.
@@ -56,7 +56,7 @@ stack. The source cross-attention is at the **front** of the classifier stack,
 so the reconstruction conditions every classifier block. θE is an explicit
 return value, never hidden state.
 
-The ablation variants each change one thing:
+The ablation variants change a controlled part of the forward path or loss:
 
 | Variant | Source tensor | θE aux loss | Distortion tokens |
 |---|---|---|---|
@@ -65,8 +65,9 @@ The ablation variants each change one thing:
 | `no_sis` | max-normalised lensed image | no | no |
 | `dist` | differentiable SIS inverse | yes | yes |
 
-The three classifier baselines (ViT, CaiT, ViTSD) use the same tokenizer and
-training recipe with `dim=288` and depths 4/3/4. Their trainable counts are
+The three classifier baselines (ViT, CaiT, ViTSD) use their standard patch
+embeddings inside the same training recipe, with `dim=288` and depths 4/3/4.
+Their trainable counts are
 4,035,459/4,035,747/4,035,459 (98.1–98.2% of the GraviLens budget), within the
 pre-registered ±10% window.
 
@@ -82,8 +83,10 @@ they are on-manifold because shear and lens-light orientations are isotropic.
 
 Checkpoint selection uses **validation** macro-F1 (lower validation loss
 breaks ties); early stopping is patience 25 on the same criterion. `train.py`
-loads only `train` and `val`; a pytest spy asserts this. `best.pt` is the
-selected checkpoint; `last.pt` is written every epoch for inspection.
+calls `load_split` only for `train` and `val`; a pytest spy asserts this. The
+provenance fingerprint scans every shard, including test, but no test image or
+label enters training. `best.pt` is the selected checkpoint; `last.pt` is
+written every epoch for inspection.
 
 ## Evaluation
 

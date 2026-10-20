@@ -1,7 +1,7 @@
 # GraviLens — Architecture v2: 5 → 9
 
 **Repo/package:** `gravilens` (GitHub: `https://github.com/<handle>/gravilens`, import name `gravilens`)
-**Status:** implemented through Phase 3; full data generation and the 21-run ablation are pending.
+**Status:** Phases 0–5 code complete; full data generation and the 21-run ablation are pending.
 **Baseline for comparison:** current state = 3 notebooks, 6.6k lines, monolithic, unversioned (no git).
 
 ---
@@ -123,7 +123,7 @@ All variants share the same architecture and the same recipe; each differs in ex
 | `no_sis` | max-normalised lensed image | no | no |
 | `dist` | differentiable SIS inverse | yes | yes (added at tokenizer input) |
 
-`no_sis` swaps only the source tensor → the cleanest possible one-variable ablation.
+`no_sis` swaps only the source tensor and removes the θE auxiliary loss → the cleanest forward-path ablation.
 
 ### 4.3 Parameter budget
 

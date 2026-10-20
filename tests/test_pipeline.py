@@ -108,9 +108,9 @@ def test_seed_for_is_stable_and_split_specific():
 
 
 def test_one_real_triplet_has_a_shared_macro_lens():
+    pytest.importorskip("scipy")
     pytest.importorskip("lenstronomy")
     pytest.importorskip("pyHalo")
-    pytest.importorskip("scipy")
 
     pool = np.random.default_rng(0).random((2, 256, 256), dtype=np.float32)
     cfg = SimConfig()

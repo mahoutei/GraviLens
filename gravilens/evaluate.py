@@ -50,7 +50,7 @@ def evaluate_run(run_dir: str | Path, data_dir: str | Path | None = None,
     run_dir = Path(run_dir)
     manifest = json.loads((run_dir / "manifest.json").read_text())
     data_dir = Path(data_dir or manifest["data"]["root"])
-    torch_device = pick_device(device or manifest.get("device", "auto"))
+    torch_device = pick_device(device or "auto")
     model, checkpoint = load_checkpoint(run_dir / "best.pt", torch_device)
     model_name = checkpoint["model_name"]
     variant = checkpoint["variant"]
@@ -132,7 +132,8 @@ def evaluate_run(run_dir: str | Path, data_dir: str | Path | None = None,
         "checkpoint_epoch": checkpoint.get("epoch"),
         "split": split,
         "data_fingerprint": fingerprint(data_dir),
-        "git_sha": git_sha(),
+        "git_sha": checkpoint.get("git_sha", manifest.get("git_sha")),
+        "eval_git_sha": git_sha(),
         "test": metrics,
         "physics_slice": physics_meta,
         "theta": theta_payload,

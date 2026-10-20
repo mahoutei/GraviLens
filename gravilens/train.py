@@ -393,7 +393,12 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
         history.append(record)
 
         score = val["macro_f1"]
-        if score > best_score + 1e-6:
+        better = score > best_score + 1e-6
+        if (not better and best_val is not None
+                and abs(score - best_score) <= 1e-6
+                and val["loss"] < best_val["loss"]):
+            better = True
+        if better:
             best_score, best_epoch, best_val = score, epoch, val
             best_state = _cpu_state(eval_model)
             _atomic_torch_save(out_dir / "best.pt", {

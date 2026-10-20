@@ -83,16 +83,33 @@ def audit_runs(runs_root: str | Path, verbose: bool = True) -> list[str]:
             problems.append(f"{name}: data fingerprint changed")
         if not isinstance(manifest.get("library_versions"), dict):
             problems.append(f"{name}: missing library versions")
+        for key, expected in (("train_size", 6999), ("val_size", 1500)):
+            if data.get(key) != expected:
+                problems.append(f"{name}: {key} is {data.get(key)!r}, expected {expected}")
+        if data.get("train_classes") != [2333, 2333, 2333]:
+            problems.append(f"{name}: unexpected train class counts")
+        if data.get("val_classes") != [500, 500, 500]:
+            problems.append(f"{name}: unexpected val class counts")
 
         test = metrics.get("test", {})
         for key in ("accuracy", "macro_f1", "macro_auc", "confusion",
                     "per_class_f1"):
             if key not in test:
                 problems.append(f"{name}: test metrics missing {key}")
+        if test.get("n") != 1500:
+            problems.append(f"{name}: test n is {test.get('n')!r}, expected 1500")
         if "confusion" in test and np.shape(test["confusion"]) != (3, 3):
             problems.append(f"{name}: confusion matrix is not 3x3")
-        if not isinstance(metrics.get("physics_slice"), dict):
+        if "macro_auc" in test and (test["macro_auc"] is None
+                                    or not np.isfinite(test["macro_auc"])):
+            problems.append(f"{name}: macro AUC is not finite")
+
+        physics = metrics.get("physics_slice")
+        if not isinstance(physics, dict):
             problems.append(f"{name}: missing physics slice")
+        else:
+            if (physics.get("n"), physics.get("per_class"), physics.get("seed")) != (501, 167, 42):
+                problems.append(f"{name}: physics slice is not 167/class seed 42")
 
         if model == "gravilens":
             theta = metrics.get("theta")
@@ -107,7 +124,9 @@ def audit_runs(runs_root: str | Path, verbose: bool = True) -> list[str]:
                         problems.append(f"{name}: theta metrics missing {key}")
                 if theta.get("supervised") != (variant in ("full", "dist")):
                     problems.append(f"{name}: theta supervision flag is wrong")
-            if not isinstance(source, dict) or len(source) != 4:
+            expected_ssim = {"ssim_model", "ssim_oracle_bilinear",
+                             "ssim_oracle_scatter", "ssim_lensed_image"}
+            if not isinstance(source, dict) or set(source) != expected_ssim:
                 problems.append(f"{name}: source SSIM references incomplete")
         else:
             if metrics.get("theta") is not None:
@@ -163,6 +182,8 @@ def summarize(records: list[dict]) -> dict:
                 "model": model,
                 "variant": variant,
                 "seeds": [record["seed"] for record in selected],
+                "theta_supervised": (variant in ("full", "dist")
+                                     if model == "gravilens" else None),
             }
             for key in ("accuracy", "macro_f1", "macro_auc"):
                 group[key] = _stat([record["metrics"]["test"][key]
@@ -178,7 +199,20 @@ def summarize(records: list[dict]) -> dict:
                     group[key] = _stat([record["metrics"]["source_ssim"][key]
                                         for record in selected])
             groups[group["label"]] = group
-    return {"runs": len(records), "groups": groups}
+
+    summary = {"runs": len(records), "groups": groups}
+    full = groups.get("gravilens/full")
+    no_sis = groups.get("gravilens/no_sis")
+    if (full and no_sis and full["macro_f1"]["mean"] is not None
+            and no_sis["macro_f1"]["mean"] is not None):
+        delta = full["macro_f1"]["mean"] - no_sis["macro_f1"]["mean"]
+        summary["decision"] = {
+            "comparison": "full - no_sis",
+            "delta_macro_f1": float(delta),
+            "null_result": bool(delta <= 0),
+            "rule": "three-seed mean; null if <= 0",
+        }
+    return summary
 
 
 def _fmt(stat: dict, digits: int = 3) -> str:
@@ -189,8 +223,8 @@ def _fmt(stat: dict, digits: int = 3) -> str:
 
 def write_table(summary: dict, path: Path) -> None:
     lines = [
-        "| model | seeds | macro-F1 | AUC (OvR) | accuracy | θE MAE | constant θE MAE | SSIM model | SSIM lensed |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| model | seeds | θE sup. | macro-F1 | AUC (OvR) | accuracy | θE MAE | constant θE MAE | SSIM model | SSIM lensed |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for group in summary["groups"].values():
         theta = _fmt(group["theta_mae"]) if "theta_mae" in group else "—"
@@ -198,10 +232,21 @@ def write_table(summary: dict, path: Path) -> None:
                     if "train_mean_baseline_mae" in group else "—")
         ssim = _fmt(group["ssim_model"]) if "ssim_model" in group else "—"
         lensed = _fmt(group["ssim_lensed_image"]) if "ssim_lensed_image" in group else "—"
+        flag = group.get("theta_supervised")
+        supervised = "—" if flag is None else ("yes" if flag else "no")
         lines.append(
-            f"| {group['label']} | {group['macro_f1']['n']} | "
+            f"| {group['label']} | {group['macro_f1']['n']} | {supervised} | "
             f"{_fmt(group['macro_f1'])} | {_fmt(group['macro_auc'])} | "
             f"{_fmt(group['accuracy'])} | {theta} | {constant} | {ssim} | {lensed} |")
+    if "decision" in summary:
+        decision = summary["decision"]
+        lines += [
+            "",
+            f"Pre-registered decision: `full - no_sis` = "
+            f"{decision['delta_macro_f1']:+.4f} macro-F1; "
+            f"{'null' if decision['null_result'] else 'non-null'} "
+            f"(null if <= 0, three-seed mean).",
+        ]
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -242,7 +287,7 @@ def _plot_physics(summary: dict, path: Path) -> None:
     left.plot(labels, [group["train_mean_baseline_mae"]["mean"] for group in groups],
               "o", color="#C44E52", label="train-mean constant")
     left.set_ylabel("θE MAE (arcsec)")
-    left.set_title("θE error vs constant guess")
+    left.set_title("θE error vs constant guess\n(no_sup/no_sis are unsupervised)")
     left.legend()
 
     width = 0.25
@@ -276,6 +321,11 @@ def build_figures(runs_root: str | Path, out_dir: str | Path | None = None) -> i
     write_table(summary, out / "main_table.md")
     _plot_macro_f1(summary, out / "macro_f1.png")
     _plot_physics(summary, out / "physics.png")
+    if "decision" in summary:
+        decision = summary["decision"]
+        print(f"decision: full - no_sis macro-F1 = "
+              f"{decision['delta_macro_f1']:+.4f} "
+              f"({'null' if decision['null_result'] else 'non-null'})")
     print(f"wrote {out / 'summary.json'}, {out / 'main_table.md'}, "
           f"{out / 'macro_f1.png'}, {out / 'physics.png'}")
     return 0

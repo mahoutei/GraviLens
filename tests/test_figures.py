@@ -22,12 +22,17 @@ def _fake_run(root: Path, model: str, variant: str, seed: int) -> None:
     manifest = {
         "run": name, "status": "finished", "model": model, "variant": variant,
         "seed": seed, "params": params, "library_versions": {"torch": "test"},
-        "data": {"root": "data/test", "fingerprint": fingerprint},
+        "data": {
+            "root": "data/test", "fingerprint": fingerprint,
+            "train_size": 6999, "val_size": 1500,
+            "train_classes": [2333, 2333, 2333],
+            "val_classes": [500, 500, 500],
+        },
     }
     test = {
-        "n": 18, "accuracy": 0.90, "macro_f1": 0.90, "macro_auc": 0.95,
+        "n": 1500, "accuracy": 0.90, "macro_f1": 0.90, "macro_auc": 0.95,
         "per_class_f1": [0.9, 0.9, 0.9],
-        "confusion": [[6, 0, 0], [0, 6, 0], [0, 0, 6]],
+        "confusion": [[500, 0, 0], [0, 500, 0], [0, 0, 500]],
     }
     theta = None
     source = None
@@ -44,7 +49,8 @@ def _fake_run(root: Path, model: str, variant: str, seed: int) -> None:
     metrics = {
         "run": name, "model": model, "variant": variant, "seed": seed,
         "params": params, "split": "test", "data_fingerprint": fingerprint,
-        "physics_slice": {"n": 6}, "test": test,
+        "physics_slice": {"n": 501, "per_class": 167, "seed": 42},
+        "test": test,
         "theta": theta, "source_ssim": source,
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest))
@@ -61,6 +67,12 @@ def test_audit_passes_on_complete_grid_and_figures_read_only_artifacts(tmp_path)
     assert build_figures(root) == 0
     for name in ("summary.json", "main_table.md", "macro_f1.png", "physics.png"):
         assert (root / "figures" / name).exists(), name
+    summary = json.loads((root / "figures" / "summary.json").read_text())
+    assert summary["runs"] == 21
+    assert summary["decision"]["comparison"] == "full - no_sis"
+    assert summary["decision"]["null_result"] is True
+    table = (root / "figures" / "main_table.md").read_text()
+    assert "Pre-registered decision" in table
 
 
 def test_audit_fails_when_a_run_is_missing(tmp_path):
