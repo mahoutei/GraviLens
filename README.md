@@ -14,6 +14,10 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+Release `v0.1.0` pins the audited code; install it directly with
+`pip install "gravilens @ git+https://github.com/<handle>/gravilens@v0.1.0"`
+and bump the tag if the package changes.
+
 Data generation needs the simulation extra:
 
 ```bash
