@@ -79,6 +79,10 @@ python -m gravilens ablate --config configs/ablation.yaml --dry-run
 python -m gravilens ablate --config configs/ablation.yaml
 ```
 
+If the GPU budget runs short, follow the pre-registered run order:
+`ablate --variants full no_sis no_sup`, then `ablate --baselines vit cait
+vitsd`, then `ablate --variants dist`.
+
 Each run writes `manifest.json`, `history.json`, `val_metrics.json`, `best.pt`,
 `last.pt`, and then `metrics.json`. `ablate` skips a run only when it used the
 same recipe and the same dataset; a run from another recipe or an older
@@ -108,10 +112,10 @@ image -> tokenizer -> physics stack -> theta_E -> differentiable SIS inverse
       -> classifier stack -> pooled head -> logits
 ```
 
-`GraviLensP` has four variants: `full`, `no_sup` (theta_E loss weight 0),
-`no_sis` (lensed image replaces the reconstructed source, with no theta_E
-auxiliary loss), and `dist` (distortion tokens added at the input). The
-`no_sis` forward path swaps exactly the source tensor.
+`GraviLensP` has four variants: `full`, `no_sis` (lensed image replaces the
+reconstructed source, with no theta_E auxiliary loss), `no_sup` (theta_E loss
+weight 0), and `dist` (distortion tokens added at the input). The `no_sis`
+forward path swaps exactly the source tensor.
 
 ### Model card
 

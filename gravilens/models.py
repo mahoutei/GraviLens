@@ -19,7 +19,9 @@ import torch.nn as nn
 from .config import ModelConfig
 from .physics import sis_invert_bilinear, theta_from_unit
 
-VARIANTS = ("full", "no_sup", "no_sis", "dist")
+# Order matters only for run priority: the reviewer-critical comparisons come
+# first, `dist` last (docs/architecture-v2.md 8.1).
+VARIANTS = ("full", "no_sis", "no_sup", "dist")
 
 
 def _mlp(in_dim: int, hidden_dim: int, out_dim: int,
