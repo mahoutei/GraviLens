@@ -2,6 +2,17 @@
 
 Physics-informed lens modelling for dark-matter substructure classification.
 
+This repository is **GraviLens** in two parts:
+
+- **The research package** (`gravilens/`, `tests/`, `configs/`, `docs/`,
+  `notebooks/`) — a matched-triplet simulator, a physics-informed classifier,
+  and a 21-run ablation driver. This is the part a reviewer reads.
+- **The web app** (`App.tsx`, `components/`, `services/`, `examples/`) — the
+  React/AI Studio presentation of GraviLens. Its own instructions are in
+  [`docs/webapp/README.md`](docs/webapp/README.md).
+
+Both live on the default branch; neither is a separate distribution.
+
 **Status:** architecture v2, Phases 0–5 code complete. The full 21-run
 ablation has not been executed yet; no result numbers are claimed.
 
@@ -9,22 +20,19 @@ ablation has not been executed yet; no result numbers are claimed.
 
 ```bash
 git clone https://github.com/mahoutei/GraviLens
-cd gravilens
+cd GraviLens
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
-
-Release `v0.1.0` pins the audited code. The Python package lives on the
-`python-package` branch of this repository (the default branch holds the
-web app); install it directly with
-`pip install "gravilens @ git+https://github.com/mahoutei/GraviLens@v0.1.0"`
-and bump the tag if the package changes.
 
 Data generation needs the simulation extra:
 
 ```bash
 pip install -e ".[sim,dev]"
 ```
+
+Release `v0.1.0` pins the audited code; check it out with
+`git checkout v0.1.0` and bump the tag if the package changes.
 
 ## Test
 
@@ -106,8 +114,8 @@ selection.
 ## Colab
 
 `notebooks/gravilens_colab.ipynb` is a self-contained driver: it needs a GPU
-runtime and the package source, nothing else — no Drive account, no local
-setup, and every command runs through the notebook's own interpreter.
+runtime and this repository, nothing else — no Drive account, no local setup,
+and every command runs through the notebook's own interpreter.
 
 The source can be a published repository or a zip you upload. Make the zip
 from the tagged release:
@@ -173,13 +181,14 @@ The implementation and the pre-registered decision rule are in
 ## Layout
 
 ```
-gravilens/       package (config, physics, models, simulate, dataset, train, evaluate, figures, cli)
+gravilens/       research package (config, physics, models, simulate, dataset, train, evaluate, figures, cli)
 tests/           CPU gates
 configs/         data and ablation YAML
 data/            generated shards (gitignored)
 notebooks/       thin Colab driver
 third_party/     vendored reference copy of DeepLenseSim (not imported)
-docs/            architecture, method, limitations, roadmap
+docs/            architecture, method, limitations, roadmap, webapp
+App.tsx, components/, services/, examples/    the GraviLens web app
 ```
 
 ## Roadmap
