@@ -52,7 +52,14 @@ says otherwise.
 - The classification signal is subtle by construction: the macro lens, source,
   and noise are matched, so only substructure remains. A null result is a
   legitimate outcome and is not grounds for changing the model after seeing
-  the test set.
+  the test set. Two measurements bound the difficulty: a linear probe on raw
+  pixels is at chance (0.32 macro-F1, grouped cross-validation), because the
+  macro lens swamps the 0.0096-mean pixel difference between a class image and
+  its `no_sub` partner, while the same probe on triplet residuals reaches 0.68
+  macro-F1. The residual probe sees the other two classes of the same triplet,
+  so it is a diagnostic of how much information the images carry, not a
+  performance any model can reach at test time. Total flux is not a class
+  shortcut (AUC ≈ 0.5 for every pair).
 - The parameter-matched baselines are a tighter comparison than the original
   notebook's 192-dim models, but they are not exhaustively tuned. They use the
   identical recipe and seeds.

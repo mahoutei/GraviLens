@@ -40,6 +40,29 @@ resumes completed shards. A fixed stratified slice of the test split
 source ground truth is stored for every generated image, so no separate
 folder is needed.
 
+The dataset that the recorded runs were trained on has fingerprint
+`a92ba64977d930d3` (train 6,999 / val 1,500 / test 1,500 images; 2,333/500/500
+matched triplets, equal class counts, θE in [0.5, 2.0]). Generating it took
+3.5 h for the train split and 1.1 h each for `val` and `test` on 8 CPU cores.
+
+Two sanity checks on the completed dataset, both reproducible from the shards
+(4-fold cross-validation grouped by triplet, so no triplet crosses a fold):
+
+- **No brightness shortcut.** Total image flux is not a class cue: a
+  flux-only classifier reaches AUC 0.53 (cdm vs no_sub), 0.50 (axion vs
+  no_sub) and 0.53 (axion vs cdm). The macro lens dominates the pixel values.
+- **The class signal is present.** A linear probe on raw pixels is at chance
+  (0.32 macro-F1) for the same reason, but the same probe on triplet
+  residuals — each image minus the mean of its own triplet, which removes the
+  macro lens — reaches 0.68 macro-F1. The mean pixel difference between a
+  class image and its `no_sub` partner is 0.0096, about 5% of the mean pixel
+  intensity.
+
+The residual probe is a diagnostic, not a result: it uses the other two
+classes of the same triplet, which a classifier never sees at test time. It
+bounds how much information the images carry; it is not a performance the
+model can reach.
+
 ## Model
 
 `GraviLensP` has 4,111,684 trainable parameters:

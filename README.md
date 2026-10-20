@@ -71,7 +71,8 @@ To move the dataset to another machine, tar the shards
 (`tar -cf gravilens-v2.tar -C data gravilens-v2`) and check the copy with
 `python -m gravilens.dataset --data-root <root> --split all`. The fingerprint
 is computed from the array contents, so both copies must print the same value;
-`ablate` refuses to reuse a run trained on a different dataset.
+`ablate` refuses to reuse a run trained on a different dataset. The dataset
+generated for this work has fingerprint `a92ba64977d930d3`.
 
 ## Train and evaluate
 
