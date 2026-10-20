@@ -34,3 +34,20 @@ def test_existing_run_counts_as_current_only_for_the_same_recipe_and_data(tmp_pa
     assert _run_is_current(out, {"epochs": 50, "batch_size": 64}, "abc")
     assert not _run_is_current(out, {"epochs": 2, "batch_size": 64}, "abc")
     assert not _run_is_current(out, {"epochs": 50, "batch_size": 64}, "def")
+
+
+def test_ablate_chunks_the_grid_without_repeating_a_group(capsys):
+    from gravilens.cli import main
+
+    assert main(["ablate", "--config", str(CONFIG), "--dry-run"]) == 0
+    assert capsys.readouterr().out.strip().endswith("21 runs")
+
+    assert main(["ablate", "--config", str(CONFIG), "--dry-run",
+                 "--variants", "full", "no_sis", "no_sup"]) == 0
+    out = capsys.readouterr().out
+    assert out.strip().endswith("9 runs")
+    assert "vit_seed42" not in out          # baselines are a separate chunk
+
+    assert main(["ablate", "--config", str(CONFIG), "--dry-run",
+                 "--baselines", "vit", "cait", "vitsd"]) == 0
+    assert capsys.readouterr().out.strip().endswith("9 runs")

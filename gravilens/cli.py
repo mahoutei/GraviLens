@@ -76,8 +76,14 @@ def cmd_audit(args) -> int:
 def cmd_ablate(args) -> int:
     cfg = load_config(args.config)
     seeds = args.seeds or [42, 123, 777]
-    variants = args.variants or list(VARIANTS)
-    baselines = args.baselines or list(BASELINES)
+    # --variants and --baselines are independent filters: giving one of them
+    # runs only that group, so the grid can be split into chunks
+    # (docs/architecture-v2.md 8.1) without repeating the other group.
+    if args.variants is None and args.baselines is None:
+        variants, baselines = list(VARIANTS), list(BASELINES)
+    else:
+        variants = list(args.variants or [])
+        baselines = list(args.baselines or [])
     jobs = ([("gravilens", variant, seed) for variant in variants for seed in seeds]
             + [(name, "full", seed) for name in baselines for seed in seeds])
 
