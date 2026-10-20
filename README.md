@@ -8,14 +8,16 @@ ablation has not been executed yet; no result numbers are claimed.
 ## Install
 
 ```bash
-git clone https://github.com/<handle>/gravilens
+git clone https://github.com/mahoutei/GraviLens
 cd gravilens
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Release `v0.1.0` pins the audited code; install it directly with
-`pip install "gravilens @ git+https://github.com/<handle>/gravilens@v0.1.0"`
+Release `v0.1.0` pins the audited code. The Python package lives on the
+`python-package` branch of this repository (the default branch holds the
+web app); install it directly with
+`pip install "gravilens @ git+https://github.com/mahoutei/GraviLens@v0.1.0"`
 and bump the tag if the package changes.
 
 Data generation needs the simulation extra:
