@@ -1,11 +1,19 @@
 """Pipeline gates: sharding, resume, matched triplets, and one real render."""
 
+import io
+import json
+import zipfile
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from gravilens.dataset import load_split, stratified_indices, validate_matched
+from gravilens.dataset import (
+    fingerprint,
+    load_split,
+    stratified_indices,
+    validate_matched,
+)
 from gravilens.simulate import (
     SimConfig,
     generate_split,
@@ -105,6 +113,47 @@ def test_stratified_slice_is_deterministic():
 def test_seed_for_is_stable_and_split_specific():
     assert seed_for("train", 5, 42) == seed_for("train", 5, 42)
     assert seed_for("train", 5, 42) != seed_for("test", 5, 42)
+
+
+def _write_fake_dataset(root: Path, tweak: bool = False) -> None:
+    for split in ("train", "val", "test"):
+        (root / split).mkdir(parents=True, exist_ok=True)
+        images = np.zeros((3, 8, 8), dtype=np.float32)
+        if tweak and split == "train":
+            images[0, 0, 0] = 1.0
+        np.savez(root / split / "shard_000000.npz", images=images,
+                 labels=np.zeros(3, dtype=np.int8),
+                 meta=np.asarray(json.dumps({"git_sha": "abc123"})))
+    (root / "manifest.json").write_text(json.dumps({
+        "sim_version": "v2.0", "classes": ["no_sub", "cdm", "axion"],
+        "image_size": 8, "seed": 42, "config": {"a": 1}, "git_sha": "abc123",
+    }))
+
+
+def _repack_with_other_timestamps(path: Path) -> None:
+    """Rewrite the npz with different zip timestamps (identical arrays)."""
+    with np.load(path) as shard:
+        arrays = {name: shard[name] for name in shard.files}
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, array in arrays.items():
+            buffer = io.BytesIO()
+            np.lib.format.write_array(buffer, array, allow_pickle=False)
+            info = zipfile.ZipInfo(f"{name}.npy", date_time=(2030, 1, 1, 0, 0, 0))
+            archive.writestr(info, buffer.getvalue())
+
+
+def test_fingerprint_hashes_content_not_zip_bytes(tmp_path):
+    first, second, changed = (tmp_path / name for name in ("a", "b", "c"))
+    _write_fake_dataset(first)
+    _write_fake_dataset(second)
+    _write_fake_dataset(changed, tweak=True)
+
+    shard = first / "train" / "shard_000000.npz"
+    before = shard.read_bytes()
+    _repack_with_other_timestamps(shard)
+    assert shard.read_bytes() != before          # the container changed ...
+    assert fingerprint(first) == fingerprint(second)   # ... the data did not
+    assert fingerprint(first) != fingerprint(changed)   # different pixels differ
 
 
 def test_one_real_triplet_has_a_shared_macro_lens():

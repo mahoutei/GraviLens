@@ -113,7 +113,9 @@ model is trained as part of this result.
 Each run writes `manifest.json` (git SHA and dirty flag, library versions,
 model/training config, data root and content fingerprint, parameter count,
 seeds) and `metrics.json` (test metrics, physics slice hash, references). The
-data manifest and shards are hashed by `dataset.fingerprint()`. Rendering is
+dataset fingerprint (`dataset.fingerprint()`) hashes the array contents and the
+data-defining manifest fields, not the `.npz` container bytes, so two
+independent generations of the same data hash identically. Rendering is
 bit-for-bit deterministic for a given triplet seed: `tests/test_pipeline.py`
 renders a real triplet twice and asserts identical pixels.
 `python -m gravilens audit` checks all 21 runs and refuses to generate figures

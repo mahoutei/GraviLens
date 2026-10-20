@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 from dataclasses import dataclass, fields
 from pathlib import Path
 
@@ -117,30 +118,56 @@ def stratified_indices(labels: np.ndarray, n_per_class: int,
 
 
 def fingerprint(root: str | Path) -> str:
-    """SHA-256 over the data manifest and every shard's bytes."""
+    """SHA-256 over the dataset's arrays and data-defining manifest fields.
+
+    The arrays are hashed, not the ``.npz`` bytes: numpy's zip container
+    embeds a timestamp, so two independent generations of identical data
+    would otherwise hash differently. Provenance (git SHA, per-shard meta)
+    lives in the manifest and is excluded here on purpose -- this hash
+    answers "are these the same data?", not "did the same code run?".
+    """
     digest = hashlib.sha256()
     root = Path(root)
-    manifest = root / "manifest.json"
-    if manifest.exists():
-        digest.update(manifest.read_bytes())
+    manifest_path = root / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        for key in ("sim_version", "classes", "image_size", "seed", "config"):
+            digest.update(key.encode())
+            digest.update(json.dumps(manifest.get(key), sort_keys=True,
+                                     default=str).encode())
     for split in ("train", "val", "test"):
         digest.update(split.encode())
         for path in sorted((root / split).glob("shard_*.npz")):
             digest.update(path.name.encode())
-            digest.update(path.read_bytes())
+            with np.load(path) as shard:
+                for key in sorted(shard.files):
+                    if key == "meta":
+                        continue
+                    array = shard[key]
+                    digest.update(f"{key}:{array.dtype}:{array.shape}".encode())
+                    digest.update(np.ascontiguousarray(array).tobytes())
     return digest.hexdigest()[:16]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Inspect a sharded v2 dataset")
     parser.add_argument("--data-root", default="data/gravilens-v2")
-    parser.add_argument("--split", default="test")
+    parser.add_argument("--split", default="test",
+                        help="train, val, test, or all")
     args = parser.parse_args(argv)
-    data = load_split(args.data_root, args.split)
-    print(f"{args.split}: {len(data):,} images | classes {data.class_counts()}")
-    print(f"theta_E: {data.theta_e.min():.3f} .. {data.theta_e.max():.3f} "
-          f"(mean {data.theta_e.mean():.3f})")
-    print("matched triplets: OK")
+    splits = ("train", "val", "test") if args.split == "all" else (args.split,)
+    for split in splits:
+        data = load_split(args.data_root, split)
+        print(f"{split}: {len(data):,} images | classes {data.class_counts()}")
+        print(f"theta_E: {data.theta_e.min():.3f} .. {data.theta_e.max():.3f} "
+              f"(mean {data.theta_e.mean():.3f})")
+        print("matched triplets: OK")
+    if args.split == "all":
+        test = load_split(args.data_root, "test")
+        per_class = min(167, int(np.bincount(test.labels, minlength=3).min()))
+        index = stratified_indices(test.labels, per_class, seed=42)
+        print(f"physics slice: {len(index)} images "
+              f"({per_class}/class, seed 42) from the test split")
     return 0
 
 

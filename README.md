@@ -54,6 +54,7 @@ concurrent commands and finish much sooner. Inspect a split with:
 
 ```bash
 python -m gravilens.dataset --data-root data/gravilens-v2 --split test
+python -m gravilens.dataset --data-root data/gravilens-v2 --split all
 ```
 
 `data/` is gitignored. The Galaxy10 selection is `ans == 6` and
