@@ -23,6 +23,23 @@ from .train import run_name
 
 SEEDS = (42, 123, 777)
 
+# The pre-registered recipe (docs/method.md). A run that used anything else
+# -- a 2-epoch smoke, a different batch size -- must not pass the audit.
+EXPECTED_RECIPE = {
+    "epochs": 50,
+    "batch_size": 64,
+    "lr": 3e-4,
+    "weight_decay": 1e-3,
+    "warmup_epochs": 5,
+    "label_smoothing": 0.05,
+    "theta_loss_weight": 0.1,
+    "patience": 25,
+    "use_ema": True,
+    "ema_decay": 0.999,
+    "aug_start": 10,
+    "max_rotation_deg": 15.0,
+}
+
 
 def expected_runs() -> list[tuple[str, str, int]]:
     return ([("gravilens", variant, seed) for variant in VARIANTS for seed in SEEDS]
@@ -83,6 +100,16 @@ def audit_runs(runs_root: str | Path, verbose: bool = True) -> list[str]:
             problems.append(f"{name}: data fingerprint changed")
         if not isinstance(manifest.get("library_versions"), dict):
             problems.append(f"{name}: missing library versions")
+        train_cfg = manifest.get("train_config")
+        if not isinstance(train_cfg, dict):
+            problems.append(f"{name}: missing training config")
+        else:
+            for key, expected in EXPECTED_RECIPE.items():
+                if train_cfg.get(key) != expected:
+                    problems.append(
+                        f"{name}: {key} is {train_cfg.get(key)!r}, expected {expected!r}")
+            if train_cfg.get("seed") != seed:
+                problems.append(f"{name}: train seed is {train_cfg.get('seed')!r}")
         for key, expected in (("train_size", 6999), ("val_size", 1500)):
             if data.get(key) != expected:
                 problems.append(f"{name}: {key} is {data.get(key)!r}, expected {expected}")

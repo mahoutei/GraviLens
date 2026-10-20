@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from gravilens.figures import audit_runs, build_figures, expected_runs
+from gravilens.figures import EXPECTED_RECIPE, audit_runs, build_figures, expected_runs
 from gravilens.models import GraviLensP, ModelConfig, count_trainable_params
 from gravilens.train import run_name
 
@@ -22,6 +22,7 @@ def _fake_run(root: Path, model: str, variant: str, seed: int) -> None:
     manifest = {
         "run": name, "status": "finished", "model": model, "variant": variant,
         "seed": seed, "params": params, "library_versions": {"torch": "test"},
+        "train_config": {**EXPECTED_RECIPE, "seed": seed},
         "data": {
             "root": "data/test", "fingerprint": fingerprint,
             "train_size": 6999, "val_size": 1500,
@@ -81,3 +82,15 @@ def test_audit_fails_when_a_run_is_missing(tmp_path):
         _fake_run(root, model, variant, seed)
     (root / run_name("gravilens", "full", 42) / "metrics.json").unlink()
     assert audit_runs(root, verbose=False)
+
+
+def test_audit_fails_when_a_run_used_another_recipe(tmp_path):
+    root = tmp_path / "runs"
+    for model, variant, seed in expected_runs():
+        _fake_run(root, model, variant, seed)
+    run_dir = root / run_name("gravilens", "full", 42)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    manifest["train_config"]["epochs"] = 2          # a smoke run, not the grid
+    (run_dir / "manifest.json").write_text(json.dumps(manifest))
+    problems = audit_runs(root, verbose=False)
+    assert any("epochs" in problem for problem in problems)

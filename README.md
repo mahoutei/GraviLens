@@ -80,9 +80,10 @@ python -m gravilens ablate --config configs/ablation.yaml
 ```
 
 Each run writes `manifest.json`, `history.json`, `val_metrics.json`, `best.pt`,
-`last.pt`, and then `metrics.json`. `ablate` skips runs that already have
-`metrics.json`, so it resumes at run granularity. The test split is evaluated
-only after checkpoint selection.
+`last.pt`, and then `metrics.json`. `ablate` skips a run only when it used the
+same recipe and the same dataset; a run from another recipe or an older
+dataset is redone. The test split is evaluated only after checkpoint
+selection.
 
 ## Results and audit
 
@@ -95,8 +96,9 @@ python -m gravilens figures  # writes runs/figures/{main_table.md,summary.json,*
 ```
 
 `audit` checks the expected 4 variants × 3 seeds and 3 baselines × 3 seeds,
-parameter matching, test-metric fields, data fingerprints, and physics
-references. `figures` reads only the JSON artifacts.
+the pre-registered training recipe, parameter matching, test-metric fields,
+data fingerprints, and physics references. `figures` reads only the JSON
+artifacts.
 
 ## Model
 

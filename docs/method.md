@@ -118,6 +118,9 @@ data-defining manifest fields, not the `.npz` container bytes, so two
 independent generations of the same data hash identically. Rendering is
 bit-for-bit deterministic for a given triplet seed: `tests/test_pipeline.py`
 renders a real triplet twice and asserts identical pixels.
-`python -m gravilens audit` checks all 21 runs and refuses to generate figures
-from an incomplete grid; `python -m gravilens figures` writes the main table and
-figures from those JSON artifacts only.
+`python -m gravilens audit` checks all 21 runs, enforces the recipe above
+(epochs, batch size, learning rate, EMA, augmentation, seed) and refuses to
+generate figures from an incomplete grid; `python -m gravilens figures` writes
+the main table and figures from those JSON artifacts only. `ablate` reuses an
+existing run only when its manifest records the same recipe and the same
+dataset fingerprint.

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from .config import load_config, runs_root
+from .dataset import fingerprint
 from .evaluate import evaluate_run
 from .models import BASELINES, VARIANTS
 from .train import run_name, run_training
@@ -85,21 +87,52 @@ def cmd_ablate(args) -> int:
         print(f"{len(jobs)} runs")
         return 0
 
+    data_dir = Path(args.data_root or cfg.data.root)
+    data_fingerprint = fingerprint(data_dir)
+
     for index, (model, variant, seed) in enumerate(jobs, start=1):
         name = run_name(model, variant, seed)
         out = _artifacts(args) / name
+        expected = asdict(replace(
+            cfg.train, seed=seed,
+            epochs=cfg.train.epochs if args.epochs is None else args.epochs,
+            batch_size=(cfg.train.batch_size if args.batch_size is None
+                        else args.batch_size),
+            patience=(cfg.train.patience if args.patience is None
+                      else args.patience),
+            lr=cfg.train.lr))
         if (out / "metrics.json").exists() and not args.force:
-            print(f"[{index}/{len(jobs)}] skip {name} (metrics.json exists)")
-            continue
-        print(f"[{index}/{len(jobs)}] {name}", flush=True)
+            if _run_is_current(out, expected, data_fingerprint):
+                print(f"[{index}/{len(jobs)}] skip {name} (metrics.json exists)")
+                continue
+            print(f"[{index}/{len(jobs)}] {name}: recipe or dataset changed, "
+                  f"rerunning", flush=True)
+        else:
+            print(f"[{index}/{len(jobs)}] {name}", flush=True)
         if not args.skip_train:
             run_training(
                 cfg, model, variant, seed, data_dir=args.data_root, out_dir=out,
                 device=args.device, epochs=args.epochs,
                 batch_size=args.batch_size, patience=args.patience)
+        elif (out / "manifest.json").exists() and not _run_is_current(
+                out, expected, data_fingerprint):
+            print(f"  warning: {name} was not trained with this recipe/dataset; "
+                  f"its stale checkpoint is being scored", flush=True)
         evaluate_run(out, data_dir=args.data_root, device=args.device,
                      physics_per_class=args.physics_per_class)
     return 0
+
+
+def _run_is_current(out: Path, expected_train_config: dict,
+                    data_fingerprint: str) -> bool:
+    """True when an existing run used this recipe on this dataset."""
+    try:
+        manifest = json.loads((out / "manifest.json").read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    if manifest.get("train_config") != expected_train_config:
+        return False
+    return manifest.get("data", {}).get("fingerprint") == data_fingerprint
 
 
 def main(argv: list[str] | None = None) -> int:
