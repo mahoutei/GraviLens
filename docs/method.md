@@ -88,6 +88,10 @@ this. The provenance fingerprint scans every shard, including test, but no test
 image or label enters training. `best.pt` is the selected checkpoint; `last.pt`
 is written every epoch for inspection.
 
+The grid is GPU-bound by design: measured on 8 CPU cores, one step (batch 64)
+costs ~1.8 s, so a 50-epoch run takes ~2.7 h and the 21-run grid ~57 h. A
+single GPU runtime is the intended host.
+
 ## Evaluation
 
 `evaluate.py` is the only module that loads the test split. Classification

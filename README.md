@@ -77,7 +77,7 @@ The provenance hash scans all shard bytes, including test, but does not feed
 them to training.
 
 ```bash
-# one run (GPU recommended)
+# one run (GPU recommended: ~2.7 h per 50-epoch run on 8 CPU cores)
 python -m gravilens train --config configs/ablation.yaml \
     --model gravilens --variant full --seed 42
 
