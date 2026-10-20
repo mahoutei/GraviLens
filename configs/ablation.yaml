@@ -1,0 +1,44 @@
+exp_name: ablation-v2
+device: auto
+
+physics:
+  theta_min: 0.5
+  theta_max: 2.0
+  pixel_scale: 0.101
+  core_radius: 0.01
+
+model:
+  image_size: 64
+  patch_size: 8
+  embed_dim: 192
+  num_heads: 8
+  mlp_ratio: 4.0
+  num_blocks: 4
+  window_size: 4
+  dropout: 0.1
+  in_channels: 1
+  num_classes: 3
+  hidden_dim: 64
+  hidden_layers: 3
+
+data:
+  root: data/gravilens-v2
+  classes: [no_sub, cdm, axion]
+  sizes: [7000, 1500, 1500]
+  shard_size: 500
+  seed: 42
+
+train:
+  epochs: 50
+  batch_size: 64
+  lr: 0.0003
+  min_lr: 0.000001
+  weight_decay: 0.001
+  warmup_epochs: 5
+  label_smoothing: 0.05
+  patience: 25
+  use_ema: true
+  ema_decay: 0.9999
+  aug_start: 10
+  max_rotation_deg: 15.0
+  seed: 42
