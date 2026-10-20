@@ -2,8 +2,8 @@
 
 Physics-informed lens modelling for dark-matter substructure classification.
 
-**Status:** architecture v2, Phase 1. The API and the data format are not frozen
-until Phase 4.
+**Status:** architecture v2, Phases 0–3. The API and the data format are not
+frozen until Phase 4. The full 21-run ablation has not been executed yet.
 
 ## Install
 
@@ -56,6 +56,27 @@ python -m gravilens.dataset --data-root data/gravilens-v2 --split test
 `data/` is gitignored. The Galaxy10 selection is `ans == 6` and
 `redshift < 0.02` (58 source galaxies); the same pool is used for every class.
 
+## Train and evaluate
+
+Training never loads the test split; only `evaluate` does, once per run.
+
+```bash
+# one run (GPU recommended)
+python -m gravilens train --config configs/ablation.yaml \
+    --model gravilens --variant full --seed 42
+
+# test metrics for that checkpoint
+python -m gravilens evaluate --run runs/gravilens_full_seed42
+
+# full grid: 4 variants x 3 seeds + 3 baselines x 3 seeds = 21 runs
+python -m gravilens ablate --config configs/ablation.yaml --dry-run
+python -m gravilens ablate --config configs/ablation.yaml
+```
+
+Each run writes `manifest.json`, `history.json`, `val_metrics.json`, `best.pt`,
+and then `metrics.json`. `ablate` skips runs that already have `metrics.json`,
+so it resumes. The test split is evaluated only after checkpoint selection.
+
 ## Model
 
 ```
@@ -72,7 +93,7 @@ one tensor.
 ## Layout
 
 ```
-gravilens/       package (config, physics, models, simulate, dataset)
+gravilens/       package (config, physics, models, simulate, dataset, train, evaluate, cli)
 tests/           CPU gates
 configs/         YAML run configurations
 data/            generated shards (gitignored)

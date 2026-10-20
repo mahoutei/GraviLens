@@ -7,8 +7,10 @@ import torch.nn.functional as F
 from gravilens.config import ModelConfig
 from gravilens.models import (
     BASELINES,
+    BASELINE_SPECS,
     VARIANTS,
     GraviLensP,
+    build_model,
     count_trainable_params,
     match_budget,
 )
@@ -102,3 +104,11 @@ def test_baselines_match_gravilens_parameter_budget():
     for name in BASELINES:
         match = match_budget(cfg, name, target)
         assert abs(match["params"] - target) / target <= 0.10
+
+
+def test_shipped_baseline_specs_are_matched():
+    cfg = ModelConfig()
+    target = count_trainable_params(GraviLensP(cfg, "full"))
+    for name, spec in BASELINE_SPECS.items():
+        params = count_trainable_params(build_model(name, cfg, **spec))
+        assert abs(params - target) / target <= 0.10

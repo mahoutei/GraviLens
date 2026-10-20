@@ -44,7 +44,7 @@ class ModelConfig:
 class DataConfig:
     root: str = "data/gravilens-v2"
     classes: tuple[str, ...] = ("no_sub", "cdm", "axion")
-    sizes: tuple[int, int, int] = (7000, 1500, 1500)   # train, val, test
+    sizes: tuple[int, int, int] = (6999, 1500, 1500)   # train, val, test
     shard_size: int = 500
     seed: int = 42
 
@@ -58,6 +58,7 @@ class TrainConfig:
     weight_decay: float = 1e-3
     warmup_epochs: int = 5
     label_smoothing: float = 0.05
+    theta_loss_weight: float = 0.1
     patience: int = 25
     use_ema: bool = True
     ema_decay: float = 0.9999

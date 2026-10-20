@@ -396,6 +396,13 @@ class ViTSDModel(nn.Module):
 
 BASELINES = ("vit", "cait", "vitsd")
 
+# Chosen by match_budget() against GraviLensP v2 (4,111,684 params); all within 2%.
+BASELINE_SPECS = {
+    "vit": {"dim": 288, "depth": 4, "num_heads": 8},
+    "cait": {"dim": 288, "depth": 3, "num_heads": 8},
+    "vitsd": {"dim": 288, "depth": 4, "num_heads": 8},
+}
+
 
 def build_model(name: str, cfg: ModelConfig, variant: str = "full",
                 dim: int = 320, depth: int = 3, **kwargs) -> nn.Module:

@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "scipy>=1.10"]
+dev = ["pytest>=8", "scipy>=1.10", "scikit-image>=0.22"]
 sim = [
   "lenstronomy==1.14.2",
   "pyHalo==1.4.6",

@@ -24,7 +24,7 @@ model:
 data:
   root: data/gravilens-v2
   classes: [no_sub, cdm, axion]
-  sizes: [7000, 1500, 1500]
+  sizes: [6999, 1500, 1500]
   shard_size: 500
   seed: 42
 
@@ -36,6 +36,7 @@ train:
   weight_decay: 0.001
   warmup_epochs: 5
   label_smoothing: 0.05
+  theta_loss_weight: 0.1
   patience: 25
   use_ema: true
   ema_decay: 0.9999

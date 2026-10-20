@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from dataclasses import dataclass, fields
 from pathlib import Path
 
@@ -113,6 +114,21 @@ def stratified_indices(labels: np.ndarray, n_per_class: int,
             raise ValueError(f"class {cls} has only {len(index)} images")
         chosen.append(rng.choice(index, size=n_per_class, replace=False))
     return np.sort(np.concatenate(chosen))
+
+
+def fingerprint(root: str | Path) -> str:
+    """Stable provenance hash over shard names, shapes, and shard metadata."""
+    digest = hashlib.sha256()
+    root = Path(root)
+    for split in ("train", "val", "test"):
+        digest.update(split.encode())
+        for path in sorted((root / split).glob("shard_*.npz")):
+            digest.update(path.name.encode())
+            with np.load(path) as shard:
+                digest.update(str(shard["images"].shape).encode())
+                if "meta" in shard:
+                    digest.update(str(shard["meta"].item()).encode())
+    return digest.hexdigest()[:16]
 
 
 def main(argv: list[str] | None = None) -> int:
