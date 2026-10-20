@@ -261,9 +261,9 @@ If `full − no_sis` ≤ 0 macro-F1 averaged over 3 seeds, the result is reporte
 | 5 | `figures.py`, `figures.py audit`, README, `docs/method.md`, `docs/limitations.md`, release tag, QR target | `audit` exits 0; poster numbers all traceable |
 | 6 | Thin Colab notebook (`notebooks/gravilens_colab.ipynb`) | a clean Colab runtime can `pip install` from the tagged release and run the pipeline end to end |
 
-Measured pilot (3 real triplets, CPU, 58-galaxy pool): **5.42 s/triplet**. Full 3,333 triplets
-≈ 5.0 h single-process; train/val/test shards can run concurrently. The pilot shard is
-`data/pilot/test/shard_000000.npz` (9 images, 3 matched triplets).
+Measured on the full shards: **~8.1 s/triplet** (the 3-triplet pilot was 5.4 s). The
+2,333-triplet train split takes ≈ 5.2 h; `val` and `test` run concurrently in ≈ 1.1 h each.
+The pilot shard is `data/pilot/test/shard_000000.npz` (9 images, 3 matched triplets).
 
 Phase 0 is CPU-only. Phases 1–2 (generation) run concurrently with 0–3 on separate Colab runtimes.
 

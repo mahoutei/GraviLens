@@ -339,6 +339,11 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
         "git_sha": git_sha(),
         "git_dirty": git_dirty(),
         "library_versions": library_versions(),
+        "determinism": (
+            "seeded python/numpy/torch"
+            + ("+cudnn.deterministic" if torch.cuda.is_available() else "")
+            + "; CUDA grid_sample backward uses atomics, so last digits may vary"
+        ),
         "torch": torch.__version__,
         "device": str(torch_device),
         "started": _now(),
@@ -347,6 +352,7 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
 
     history = []
     best_score, best_epoch, best_val, best_state = -1.0, -1, None, None
+    best_loss, best_loss_epoch = float("inf"), -1
     step = 0
 
     for epoch in range(train_cfg.epochs):
@@ -391,6 +397,9 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
         record = {"epoch": epoch, "lr": lr_now,
                   "train_loss": loss_sum / max(1, seen), **val}
         history.append(record)
+
+        if val["loss"] < best_loss - 1e-9:
+            best_loss, best_loss_epoch = val["loss"], epoch
 
         score = val["macro_f1"]
         better = score > best_score + 1e-6
@@ -438,8 +447,10 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
               f"val {val['loss']:.4f} acc {val['accuracy']:.3f} "
               f"f1 {val['macro_f1']:.3f}", flush=True)
 
-        if best_epoch >= 0 and epoch - best_epoch >= train_cfg.patience:
-            print(f"{name}: early stop at {epoch}", flush=True)
+        if (best_loss_epoch >= 0
+                and epoch - best_loss_epoch >= train_cfg.patience):
+            print(f"{name}: early stop at {epoch} "
+                  f"(no val loss gain for {train_cfg.patience} epochs)", flush=True)
             break
 
     if best_state is None:

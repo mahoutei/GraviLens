@@ -126,3 +126,9 @@ def test_one_real_triplet_has_a_shared_macro_lens():
     assert np.allclose(sources, sources[0])
     diffs = [np.abs(images[i] - images[j]).max() for i in range(3) for j in range(i)]
     assert max(diffs) > 1e-4
+
+    # Same triplet seed -> bit-for-bit identical pixels (plan DoD item 2).
+    again, sources_again, theta_again = render_triplet(system, cfg, 123)
+    assert np.array_equal(images, again)
+    assert np.array_equal(sources, sources_again)
+    assert theta_again == theta

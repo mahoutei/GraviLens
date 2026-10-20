@@ -82,11 +82,11 @@ steps/epoch, so it can affect a 50-epoch run. Flips and ±15° rotations start a
 they are on-manifold because shear and lens-light orientations are isotropic.
 
 Checkpoint selection uses **validation** macro-F1 (lower validation loss
-breaks ties); early stopping is patience 25 on the same criterion. `train.py`
-calls `load_split` only for `train` and `val`; a pytest spy asserts this. The
-provenance fingerprint scans every shard, including test, but no test image or
-label enters training. `best.pt` is the selected checkpoint; `last.pt` is
-written every epoch for inspection.
+breaks ties); early stopping is patience 25 on the **validation loss**.
+`train.py` calls `load_split` only for `train` and `val`; a pytest spy asserts
+this. The provenance fingerprint scans every shard, including test, but no test
+image or label enters training. `best.pt` is the selected checkpoint; `last.pt`
+is written every epoch for inspection.
 
 ## Evaluation
 
@@ -113,7 +113,9 @@ model is trained as part of this result.
 Each run writes `manifest.json` (git SHA and dirty flag, library versions,
 model/training config, data root and content fingerprint, parameter count,
 seeds) and `metrics.json` (test metrics, physics slice hash, references). The
-data manifest and shards are hashed by `dataset.fingerprint()`.
+data manifest and shards are hashed by `dataset.fingerprint()`. Rendering is
+bit-for-bit deterministic for a given triplet seed: `tests/test_pipeline.py`
+renders a real triplet twice and asserts identical pixels.
 `python -m gravilens audit` checks all 21 runs and refuses to generate figures
 from an incomplete grid; `python -m gravilens figures` writes the main table and
 figures from those JSON artifacts only.
