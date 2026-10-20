@@ -61,7 +61,7 @@ class TrainConfig:
     theta_loss_weight: float = 0.1
     patience: int = 25
     use_ema: bool = True
-    ema_decay: float = 0.9999
+    ema_decay: float = 0.999
     aug_start: int = 10
     max_rotation_deg: float = 15.0
     seed: int = 42

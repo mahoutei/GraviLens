@@ -39,7 +39,7 @@ train:
   theta_loss_weight: 0.1
   patience: 25
   use_ema: true
-  ema_decay: 0.9999
+  ema_decay: 0.999
   aug_start: 10
   max_rotation_deg: 15.0
   seed: 42

@@ -76,7 +76,8 @@ One loop trains GraviLens variants and baselines. AdamW uses lr `3e-4`, weight
 decay `1e-3`, five warmup epochs, and cosine decay to `1e-6`; training runs 50
 epochs at batch 64. The loss is cross-entropy with label smoothing 0.05, plus
 `0.1 * SmoothL1(theta_E)` for `full` and `dist`. EMA is retained as the one
-stabiliser and is a config flag. Flips and ±15° rotations start at epoch 10;
+stabiliser and is a config flag; decay 0.999 is an ~9-epoch window at 109
+steps/epoch, so it can affect a 50-epoch run. Flips and ±15° rotations start at epoch 10;
 they are on-manifold because shear and lens-light orientations are isotropic.
 
 Checkpoint selection uses **validation** macro-F1 (lower validation loss
