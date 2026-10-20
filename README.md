@@ -100,6 +100,26 @@ same recipe and the same dataset; a run from another recipe or an older
 dataset is redone. The test split is evaluated only after checkpoint
 selection.
 
+## Colab
+
+`notebooks/gravilens_colab.ipynb` is a self-contained driver: it needs a GPU
+runtime and the package source, nothing else — no Drive account, no local
+setup, and every command runs through the notebook's own interpreter.
+
+The source can be a published repository or a zip you upload. Make the zip
+from the tagged release:
+
+```bash
+git archive --format=zip --prefix=gravilens-pkg/ -o gravilens-src.zip v0.1.0
+```
+
+Upload `gravilens-src.zip` (135 KB) with the notebook's file picker. The
+dataset is then either regenerated in the runtime (~4 CPU-hours for the train
+split) or uploaded as
+`tar -cf gravilens-v2.tar -C data gravilens-v2` (~300 MB). The notebook prints
+the dataset fingerprint and the split sizes, and refuses to look healthy if the
+dataset is incomplete.
+
 ## Results and audit
 
 The full grid has **not** been run in this snapshot. No result numbers are
