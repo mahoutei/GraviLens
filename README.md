@@ -102,7 +102,9 @@ python -m gravilens figures  # writes runs/figures/{main_table.md,summary.json,*
 `audit` checks the expected 4 variants × 3 seeds and 3 baselines × 3 seeds,
 the pre-registered training recipe, parameter matching, test-metric fields,
 data fingerprints, and physics references. `figures` reads only the JSON
-artifacts.
+artifacts. Once the grid has been run, the table to quote is
+`runs/figures/main_table.md`; paste it here and state the pre-registered
+decision (`full − no_sis` ≤ 0 → null result) either way.
 
 ## Model
 
