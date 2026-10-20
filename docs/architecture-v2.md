@@ -1,7 +1,7 @@
 # GraviLens — Architecture v2: 5 → 9
 
 **Repo/package:** `gravilens` (GitHub: `https://github.com/<handle>/gravilens`, import name `gravilens`)
-**Status:** design approved, not yet implemented.
+**Status:** implemented through Phase 3; full data generation and the 21-run ablation are pending.
 **Baseline for comparison:** current state = 3 notebooks, 6.6k lines, monolithic, unversioned (no git).
 
 ---
@@ -53,7 +53,7 @@ gravilens/
     train.py         # single training loop, checkpointing, resume
     evaluate.py      # classification + physics metrics, gates, ablation runner
     figures.py       # poster figures + claim audit, artifacts only
-    cli.py           # python -m gravilens {generate,train,ablate,evaluate,figures,audit,gates}
+    cli.py           # python -m gravilens {generate,train,evaluate,ablate,figures,audit}
   tests/
     test_physics.py
     test_models.py
@@ -148,7 +148,7 @@ Measured baseline matches (search grid, ±10% tolerance):
 | CaiT | 288 | 3 | 4,035,747 | 98.2% |
 | ViTSD | 288 | 4 | 4,035,459 | 98.1% |
 
-`models.py` ships `count_trainable_params()` as the authority. `match_budget(target, tolerance=0.10)` searches `(dim, depth)` over a small grid for each baseline and writes the chosen config into `configs/ablation.yaml`. Baselines are reported with their exact param count; no comparison sentence is allowed without it.
+`models.py` ships `count_trainable_params()` as the authority. `BASELINE_SPECS` holds the selected `(dim, depth, heads)` values; `match_budget(target, tolerance=0.10)` reproduces the search. The spec is echoed into every run manifest. Baselines are reported with their exact param count; no comparison sentence is allowed without it.
 
 ---
 
@@ -186,9 +186,9 @@ Fix: sample the shear and lens-light orientation randomly (same prior for all cl
 
 ### 5.3 Reproducibility
 
-- Per-sample seed: `seed = f(master_seed, class, split, index)`; all stochastic calls in lenstronomy/pyHalo/numpy run under it.
-- Stored per sample: `images`, `labels`, `theta_e`, `sources`, `seeds`, `class_ids`, `sample_ids`.
-- Split layout: `data/gravilens-v2/{train,val,test}/shard_XXX.npz` + `manifest.json` per split containing: per-class counts, θE statistics, sha256 per shard, config hash, seed, git commit, library versions, timestamp.
+- Per-triplet seed: `seed_for(split, triplet, master_seed)`; the three class renderings share it and all stochastic calls in lenstronomy/pyHalo/numpy for that triplet run under it.
+- Stored per triplet: `images` (3 classes), `sources`, `labels`, `theta_e`, `system_id`, shear components, lens angle, galaxy index, source magnitude. Shard `meta` records split/start/stop/seed/config/git SHA.
+- Split layout: `data/gravilens-v2/{train,val,test}/shard_XXX.npz` + a locked root `manifest.json` with classes, image size, seed, config, completed shard starts, and git SHA. `dataset.fingerprint()` hashes the manifest and every shard's bytes; each run manifest records library versions.
 - Sizes default 6999/1500/1500, equal thirds per class (7,000 is not divisible by 3; the generator always writes whole triplets). Configurable (e.g. 4000/1000/1000) without code change.
 
 ### 5.4 Physics evaluation set — dissolved
@@ -213,8 +213,8 @@ One loop for every variant and every baseline (`train.py`).
 | Selection | best **val** macro-F1; tie-break on lower val loss; early stop on val loss, patience 25 |
 | Test set | never touched inside `train.py`; a test asserts this with a spy loader |
 | Determinism | `seed_everything` per run; cudnn deterministic where cheap; non-deterministic ops recorded in the manifest |
-| Checkpoints | `last.pt` and `best.pt`, atomic write (tmp + rename), full optimizer/scheduler/epoch/history state |
-| Resume | restores exactly; a test asserts resume does not duplicate epochs and reproduces the same weights |
+| Checkpoints | `best.pt` (selected on val macro-F1) and `last.pt` (every epoch), atomic write |
+| Resume | `ablate` skips runs that already have `metrics.json`; mid-run optimizer-state resume is not wired in this snapshot |
 
 Rationale for deleting the stabilisers: with `accumulation_steps=1` the accumulator is a no-op, and Lookahead + EMA + adaptive clipping together make it impossible to attribute a metric change to the physics branch. One stabiliser, documented, is better science than three undocumented ones.
 
@@ -225,7 +225,7 @@ Rationale for deleting the stabilisers: with `accumulation_steps=1` the accumula
 ### 7.1 Metrics
 
 - **Classification:** macro-F1 (primary), multiclass AUC (OvR, macro — the method is stated in every table), accuracy, 3×3 confusion matrix in fixed class order, per-class F1.
-- **Physics:** θE MAE / RMSE / bias / Pearson / fraction within 10%, always against the **train-mean constant-guess baseline**; source SSIM for four references — model, oracle-bilinear, oracle-scatter, lensed-image — so the model SSIM is read against its ceiling.
+- **Physics:** θE MAE / RMSE / bias / Pearson / fraction within 10%, always against the **train-mean constant-guess baseline**; source SSIM for four references — model, oracle-bilinear, oracle-scatter, lensed-image — so the model SSIM is read against its ceiling. Physics metrics use a fixed 501-image stratified test slice (167 per class, seed 42); classification uses all test images.
 - **Three seeds (42, 123, 777):** mean ± SD computed from seed-level values; raw per-seed metrics saved; AUC seed basis stated.
 
 ### 7.2 Gates (enforced in `pytest`, not notebook cells)
@@ -301,7 +301,7 @@ Kept deliberately: EMA flag, augmentation intensity ramp, the `dist` variant. `b
 
 1. `git clone && pip install -e . && pytest` passes on CPU in <2 minutes.
 2. `python -m gravilens generate --config configs/data.yaml` reproduces a 50-image sample bit-for-bit across two runs (hash equality).
-3. `python -m gravilens ablate --config configs/ablation.yaml` produces 21 runs, each with `metrics.json` + `manifest.json`; test metrics appear exactly once per run, after checkpoint selection.
+3. `python -m gravilens ablate --config configs/ablation.yaml` is wired for 21 runs, each with `metrics.json` + `manifest.json`; test metrics appear exactly once per run, after checkpoint selection. Execution of the grid is pending.
 4. Every parameter of every model receives a gradient in the smoke backward pass (no dead parameters).
 5. G2 and G3 pass on the final checkpoint and are enforced by pytest.
 6. No test-set access inside `train.py` (asserted by a test using a spy loader).

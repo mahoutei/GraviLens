@@ -1,0 +1,9 @@
+exp_name: data-v2
+device: auto
+
+data:
+  root: data/gravilens-v2
+  classes: [no_sub, cdm, axion]
+  sizes: [6999, 1500, 1500]
+  shard_size: 500
+  seed: 42

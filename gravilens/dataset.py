@@ -117,17 +117,17 @@ def stratified_indices(labels: np.ndarray, n_per_class: int,
 
 
 def fingerprint(root: str | Path) -> str:
-    """Stable provenance hash over shard names, shapes, and shard metadata."""
+    """SHA-256 over the data manifest and every shard's bytes."""
     digest = hashlib.sha256()
     root = Path(root)
+    manifest = root / "manifest.json"
+    if manifest.exists():
+        digest.update(manifest.read_bytes())
     for split in ("train", "val", "test"):
         digest.update(split.encode())
         for path in sorted((root / split).glob("shard_*.npz")):
             digest.update(path.name.encode())
-            with np.load(path) as shard:
-                digest.update(str(shard["images"].shape).encode())
-                if "meta" in shard:
-                    digest.update(str(shard["meta"].item()).encode())
+            digest.update(path.read_bytes())
     return digest.hexdigest()[:16]
 
 

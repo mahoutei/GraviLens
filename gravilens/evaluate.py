@@ -6,6 +6,7 @@ per run; ``ablate`` skips runs that already have one.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -13,7 +14,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from .dataset import fingerprint, load_split
+from .dataset import fingerprint, load_split, stratified_indices
 from .physics import sis_invert_bilinear, sis_invert_scatter
 from .train import (
     LensDataset,
@@ -33,10 +34,19 @@ def _ssim_mean(pred: np.ndarray, target: np.ndarray) -> float:
     ]))
 
 
+def _macro_auc(y_true: np.ndarray, probs: np.ndarray) -> float:
+    from sklearn.metrics import roc_auc_score
+    try:
+        return float(roc_auc_score(
+            y_true, probs, multi_class="ovr", average="macro", labels=[0, 1, 2]))
+    except ValueError:
+        return float("nan")
+
+
 @torch.no_grad()
 def evaluate_run(run_dir: str | Path, data_dir: str | Path | None = None,
                  split: str = "test", device: str | None = None,
-                 batch_size: int = 128) -> dict:
+                 batch_size: int = 128, physics_per_class: int = 167) -> dict:
     run_dir = Path(run_dir)
     manifest = json.loads((run_dir / "manifest.json").read_text())
     data_dir = Path(data_dir or manifest["data"]["root"])
@@ -63,36 +73,53 @@ def evaluate_run(run_dir: str | Path, data_dir: str | Path | None = None,
         logits_all.append(logits.detach().cpu())
         labels_all.append(labels.detach().cpu())
 
+    logits = torch.cat(logits_all)
     y_true = torch.cat(labels_all).numpy()
-    y_pred = torch.cat(logits_all).argmax(dim=1).numpy()
+    y_pred = logits.argmax(dim=1).numpy()
+    probs = torch.softmax(logits, dim=1).numpy()
     f1, per_class, confusion = macro_f1(y_true, y_pred)
     metrics = {
         "n": int(len(y_true)),
         "accuracy": float((y_true == y_pred).mean()),
         "macro_f1": f1,
+        "macro_auc": _macro_auc(y_true, probs),
         "per_class_f1": per_class,
         "confusion": confusion,
+    }
+
+    per_class = min(int(physics_per_class),
+                    int(np.bincount(data.labels, minlength=3).min()))
+    physics_index = stratified_indices(data.labels, per_class, seed=42)
+    physics_meta = {
+        "n": int(len(physics_index)),
+        "per_class": per_class,
+        "seed": 42,
+        "sha256": hashlib.sha256(
+            physics_index.astype(np.int64).tobytes()).hexdigest()[:16],
     }
 
     theta_payload = None
     source_payload = None
     if model_name == "gravilens":
-        theta_pred = torch.cat(theta_all).numpy()
-        theta_payload = theta_metrics(theta_pred, data.theta_e)
+        theta_pred = torch.cat(theta_all).numpy()[physics_index]
+        theta_true = data.theta_e[physics_index]
+        theta_payload = theta_metrics(theta_pred, theta_true)
+        theta_payload["n"] = int(len(physics_index))
         theta_payload["train_mean_baseline_mae"] = float(np.mean(np.abs(
-            data.theta_e - checkpoint["train_theta_mean"])))
+            theta_true - checkpoint["train_theta_mean"])))
         theta_payload["supervised"] = variant in ("full", "dist")
 
-        model_source = torch.cat(source_all).numpy()[:, 0]
-        images = torch.from_numpy(data.images).float()
-        true_theta = torch.from_numpy(data.theta_e).float()
+        model_source = torch.cat(source_all).numpy()[physics_index, 0]
+        images = torch.from_numpy(data.images[physics_index]).float()
+        true_theta = torch.from_numpy(theta_true).float()
         oracle_bilinear = sis_invert_bilinear(images, true_theta).numpy()[:, 0]
         oracle_scatter = sis_invert_scatter(images, true_theta).numpy()[:, 0]
+        sources = data.sources[physics_index]
         source_payload = {
-            "ssim_model": _ssim_mean(model_source, data.sources),
-            "ssim_oracle_bilinear": _ssim_mean(oracle_bilinear, data.sources),
-            "ssim_oracle_scatter": _ssim_mean(oracle_scatter, data.sources),
-            "ssim_lensed_image": _ssim_mean(data.images, data.sources),
+            "ssim_model": _ssim_mean(model_source, sources),
+            "ssim_oracle_bilinear": _ssim_mean(oracle_bilinear, sources),
+            "ssim_oracle_scatter": _ssim_mean(oracle_scatter, sources),
+            "ssim_lensed_image": _ssim_mean(data.images[physics_index], sources),
         }
 
     payload = {
@@ -107,6 +134,7 @@ def evaluate_run(run_dir: str | Path, data_dir: str | Path | None = None,
         "data_fingerprint": fingerprint(data_dir),
         "git_sha": git_sha(),
         "test": metrics,
+        "physics_slice": physics_meta,
         "theta": theta_payload,
         "source_ssim": source_payload,
     }

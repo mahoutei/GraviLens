@@ -39,6 +39,28 @@ def git_sha() -> str | None:
         return None
 
 
+def git_dirty() -> bool | None:
+    try:
+        return bool(subprocess.check_output(
+            ["git", "status", "--porcelain"], text=True,
+            stderr=subprocess.DEVNULL).strip())
+    except Exception:
+        return None
+
+
+def library_versions() -> dict[str, str]:
+    from importlib.metadata import PackageNotFoundError, version
+    names = ("torch", "numpy", "PyYAML", "scipy", "scikit-image",
+             "scikit-learn", "lenstronomy", "pyHalo", "astropy")
+    found = {}
+    for name in names:
+        try:
+            found[name] = version(name)
+        except PackageNotFoundError:
+            pass
+    return found
+
+
 def seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -315,6 +337,8 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
             "train_theta_mean": float(train_data.theta_e.mean()),
         },
         "git_sha": git_sha(),
+        "git_dirty": git_dirty(),
+        "library_versions": library_versions(),
         "torch": torch.__version__,
         "device": str(torch_device),
         "started": _now(),
@@ -392,6 +416,18 @@ def run_training(cfg: RunConfig, model_name: str, variant: str, seed: int,
             manifest["best_epoch"] = best_epoch
             manifest["best_val"] = best_val
             _write_json(out_dir / "manifest.json", manifest)
+
+        _atomic_torch_save(out_dir / "last.pt", {
+            "model": _cpu_state(model),
+            "optimizer": optimizer.state_dict(),
+            "ema": {key: value.detach().cpu() for key, value in ema.shadow.items()}
+            if ema is not None else None,
+            "epoch": epoch,
+            "history": history,
+            "best_epoch": best_epoch,
+            "best_state": best_state,
+            "best_val": best_val,
+        })
 
         print(f"{name}: epoch {epoch:02d} train {record['train_loss']:.4f} "
               f"val {val['loss']:.4f} acc {val['accuracy']:.3f} "

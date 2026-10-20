@@ -89,13 +89,15 @@ def test_tiny_run_overfits_and_writes_artifacts(tiny_run):
     _, run_dir, result = tiny_run
     assert result["best_val"]["accuracy"] >= 0.9
     assert result["best_val"]["macro_f1"] >= 0.9
-    for name in ("best.pt", "manifest.json", "history.json", "val_metrics.json"):
+    for name in ("best.pt", "last.pt", "manifest.json", "history.json", "val_metrics.json"):
         assert (run_dir / name).exists(), name
     manifest = json.loads((run_dir / "manifest.json").read_text())
     assert manifest["status"] == "finished"
     assert manifest["data"]["train_size"] == 36
     assert manifest["data"]["val_size"] == 18
     assert manifest["params"] > 0
+    assert "git_sha" in manifest
+    assert manifest["library_versions"]
     assert len(json.loads((run_dir / "history.json").read_text())) == 40
 
 
@@ -124,12 +126,16 @@ def test_training_loads_only_train_and_val(tiny_data, tmp_path_factory, monkeypa
 
 def test_evaluate_writes_metrics_on_test_only(tiny_run):
     tiny_data, run_dir, _ = tiny_run
-    payload = evaluate_run(run_dir, data_dir=tiny_data, device="cpu")
+    payload = evaluate_run(run_dir, data_dir=tiny_data, device="cpu",
+                           physics_per_class=2)
     assert (run_dir / "metrics.json").exists()
     assert payload["split"] == "test"
     assert payload["test"]["n"] == 18
     assert payload["test"]["accuracy"] >= 0.9
+    assert "macro_auc" in payload["test"]
+    assert payload["physics_slice"]["n"] == 6
     assert payload["theta"] is not None
+    assert payload["theta"]["n"] == 6
     assert payload["theta"]["supervised"] is True
     assert "train_mean_baseline_mae" in payload["theta"]
     assert set(payload["source_ssim"]) == {
@@ -154,6 +160,24 @@ def test_baseline_run_skips_physics_metrics(tiny_data, tmp_path_factory):
     assert payload["theta"] is None
     assert payload["source_ssim"] is None
     assert payload["test"]["n"] == 18
+
+
+def test_generate_command_delegates_with_its_options(monkeypatch):
+    import gravilens.simulate as simulate
+    from gravilens.cli import main
+
+    captured = {}
+
+    def fake_main(argv):
+        captured["argv"] = argv
+        return 0
+
+    monkeypatch.setattr(simulate, "main", fake_main)
+    assert main(["generate", "--config", "configs/data.yaml",
+                 "--splits", "test", "--limit", "3", "--shard-size", "9"]) == 0
+    assert captured["argv"][:2] == ["--config", "configs/data.yaml"]
+    assert "--splits" in captured["argv"] and "test" in captured["argv"]
+    assert "--limit" in captured["argv"] and "3" in captured["argv"]
 
 
 def test_ablation_dry_run_is_21_runs(capsys):

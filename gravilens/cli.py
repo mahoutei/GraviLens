@@ -1,4 +1,4 @@
-"""Command line: ``python -m gravilens {train,evaluate,ablate}``."""
+"""Command line: ``python -m gravilens {generate,train,evaluate,ablate,figures,audit}``."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .train import run_name, run_training
 def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--config", default="configs/ablation.yaml")
     parser.add_argument("--data-root", default=None,
-                        help="override configs/ablation.yaml data.root")
+                        help="override the config's data.root")
     parser.add_argument("--device", default=None, help="auto, cpu, cuda, mps")
     parser.add_argument("--runs-root", default=None,
                         help="artifact root (default: $GRAVILENS_RUNS or runs)")
@@ -23,6 +23,23 @@ def _common(parser: argparse.ArgumentParser) -> None:
 
 def _artifacts(args) -> Path:
     return Path(args.runs_root) if args.runs_root else runs_root()
+
+
+def cmd_generate(args) -> int:
+    from .simulate import main as simulate_main
+    argv = ["--config", args.config]
+    if args.data_root:
+        argv += ["--data-root", args.data_root]
+    if args.galaxy_file:
+        argv += ["--galaxy-file", args.galaxy_file]
+    argv += ["--splits", *args.splits]
+    if args.seed is not None:
+        argv += ["--seed", str(args.seed)]
+    if args.shard_size is not None:
+        argv += ["--shard-size", str(args.shard_size)]
+    if args.limit is not None:
+        argv += ["--limit", str(args.limit)]
+    return simulate_main(argv)
 
 
 def cmd_train(args) -> int:
@@ -40,8 +57,18 @@ def cmd_train(args) -> int:
 
 def cmd_evaluate(args) -> int:
     evaluate_run(args.run, data_dir=args.data_root, split=args.split,
-                 device=args.device)
+                 device=args.device, physics_per_class=args.physics_per_class)
     return 0
+
+
+def cmd_figures(args) -> int:
+    from .figures import build_figures
+    return build_figures(_artifacts(args), args.out)
+
+
+def cmd_audit(args) -> int:
+    from .figures import audit_runs
+    return 0 if not audit_runs(_artifacts(args)) else 1
 
 
 def cmd_ablate(args) -> int:
@@ -70,13 +97,24 @@ def cmd_ablate(args) -> int:
                 cfg, model, variant, seed, data_dir=args.data_root, out_dir=out,
                 device=args.device, epochs=args.epochs,
                 batch_size=args.batch_size, patience=args.patience)
-        evaluate_run(out, data_dir=args.data_root, device=args.device)
+        evaluate_run(out, data_dir=args.data_root, device=args.device,
+                     physics_per_class=args.physics_per_class)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="gravilens")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    generate = sub.add_parser("generate", help="generate the matched dataset")
+    generate.add_argument("--config", default="configs/data.yaml")
+    generate.add_argument("--data-root", default=None)
+    generate.add_argument("--galaxy-file", default=None)
+    generate.add_argument("--splits", nargs="+", default=["train", "val", "test"])
+    generate.add_argument("--seed", type=int, default=None)
+    generate.add_argument("--shard-size", type=int, default=None)
+    generate.add_argument("--limit", type=int, default=None)
+    generate.set_defaults(func=cmd_generate)
 
     train = sub.add_parser("train", help="train one run")
     _common(train)
@@ -94,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     _common(evaluate)
     evaluate.add_argument("--run", required=True)
     evaluate.add_argument("--split", default="test")
+    evaluate.add_argument("--physics-per-class", type=int, default=167)
     evaluate.set_defaults(func=cmd_evaluate)
 
     ablate = sub.add_parser("ablate", help="train + evaluate the full grid")
@@ -104,12 +143,22 @@ def main(argv: list[str] | None = None) -> int:
     ablate.add_argument("--epochs", type=int, default=None)
     ablate.add_argument("--batch-size", type=int, default=None)
     ablate.add_argument("--patience", type=int, default=None)
+    ablate.add_argument("--physics-per-class", type=int, default=167)
     ablate.add_argument("--skip-train", action="store_true",
                         help="evaluate existing runs only")
     ablate.add_argument("--force", action="store_true",
                         help="redo runs that already have metrics.json")
     ablate.add_argument("--dry-run", action="store_true")
     ablate.set_defaults(func=cmd_ablate)
+
+    figures = sub.add_parser("figures", help="write the main table and figures")
+    _common(figures)
+    figures.add_argument("--out", default=None)
+    figures.set_defaults(func=cmd_figures)
+
+    audit = sub.add_parser("audit", help="check that all 21 run artifacts exist")
+    _common(audit)
+    audit.set_defaults(func=cmd_audit)
 
     args = parser.parse_args(argv)
     return args.func(args)

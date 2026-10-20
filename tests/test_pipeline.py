@@ -80,6 +80,20 @@ def test_matched_gate_rejects_a_tampered_triplet(tmp_path):
         validate_matched(data)
 
 
+def test_generation_is_deterministic_with_a_fixed_renderer(tmp_path):
+    pool = np.random.default_rng(9).random((2, 64, 64), dtype=np.float32)
+    for name in ("first", "second"):
+        generate_split(
+            "test", n_images=3, galaxy_pool=pool, cfg=_tiny_config(),
+            out_root=Path(tmp_path) / name, seed=11, shard_size=3,
+            render_fn=_fake_render, verbose=False)
+    first = load_split(Path(tmp_path) / "first", "test")
+    second = load_split(Path(tmp_path) / "second", "test")
+    for field in ("images", "sources", "labels", "theta_e", "system_id",
+                  "shear1", "shear2", "lens_angle", "galaxy_index", "source_mag"):
+        assert np.array_equal(getattr(first, field), getattr(second, field)), field
+
+
 def test_stratified_slice_is_deterministic():
     labels = np.tile(np.arange(3), 20)
     first = stratified_indices(labels, 4, seed=11)
