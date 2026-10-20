@@ -122,7 +122,6 @@ All variants share the same architecture and the same recipe; each differs in ex
 | `no_sup` | differentiable SIS inverse | no (λ=0) | no |
 | `no_sis` | max-normalised lensed image | no | no |
 | `dist` | differentiable SIS inverse | yes | yes (added at tokenizer input) |
-| `base` | *historical benchmark model, disclosed as such* | — | — |
 
 `no_sis` swaps only the source tensor → the cleanest possible one-variable ablation.
 
@@ -167,12 +166,13 @@ All three classes share the **same distribution** of macro-lens parameters. Clas
 | Lens light | 2 × SERSIC_ELLIPSE, mag 40, `(R=0.4, n=2.3)` and `(R=1.5, n=1.2)`, orientations random |
 | Source | INTERPOL, mag ~ N(16, 0.1), position ~ U(-0.4, 0.4)², angle ~ U(-π, π), scale 0.015 |
 | Observation | Euclid VIS band, Gaussian PSF, 6-year coadd, lenstronomy noise model |
-| Cosmology | FlatLambdaCDM(H0=70, Om0=0.3, Ob0=0), z_lens 0.5, z_source 2.5 — **identical for lenstronomy and pyHalo** |
+| Cosmology | FlatLambdaCDM(H0=70, Om0=0.3, Ob0=0.049), z_lens 0.5, z_source 2.5 — **identical for lenstronomy and pyHalo** (Ob0 must be non-zero: Colossus refuses the Eisenstein & Hu transfer function at Ob0=0) |
+| Substructure | pyHalo `sigma_sub=0.025`, `log_mlow=7`, `log_mhigh=10`, cone 6.5 arcsec (covers the 6.36 arcsec image). `log_mlow=7` is the resolution floor; it cuts ~15k mostly unresolvable halos per realisation to ~800 and reduces generation from ~32 s to ~2 s per CDM image. |
 
 Class-specific part:
 - `no_sub` — SIE + shear only, no subhaloes.
 - `cdm` — + pyHalo CDM realisation.
-- `axion` — + pyHalo ULDM realisation with wave-interference fluctuations, ported exactly from `DeepLenseSim/Model_IV/sim_axion.py` and verified against the pinned upstream commit.
+- `axion` — + pyHalo ULDM halo population (`log10_m_uldm=-21.5`). The optional main-deflector fluctuation field is disabled (`flucs=False`): the pinned pyHalo 1.4.6 requires image-plane apertures for it, and the halo population is the class signal. Ported from `DeepLenseSim/Model_IV/sim_axion.py`; this deviation is disclosed in `docs/method.md`.
 
 **Two bugs fixed here, both of which currently leak class identity:**
 1. `no_sub` currently renders with no shear while `cdm`/`axion` carry `gamma1=0.05` — a classifier can separate the classes on shear, not substructure.
@@ -189,7 +189,7 @@ Fix: sample the shear and lens-light orientation randomly (same prior for all cl
 - Per-sample seed: `seed = f(master_seed, class, split, index)`; all stochastic calls in lenstronomy/pyHalo/numpy run under it.
 - Stored per sample: `images`, `labels`, `theta_e`, `sources`, `seeds`, `class_ids`, `sample_ids`.
 - Split layout: `data/gravilens-v2/{train,val,test}/shard_XXX.npz` + `manifest.json` per split containing: per-class counts, θE statistics, sha256 per shard, config hash, seed, git commit, library versions, timestamp.
-- Sizes default 7000/1500/1500, equal thirds per class; configurable (e.g. 4000/1000/1000) without code change.
+- Sizes default 6999/1500/1500, equal thirds per class (7,000 is not divisible by 3; the generator always writes whole triplets). Configurable (e.g. 4000/1000/1000) without code change.
 
 ### 5.4 Physics evaluation set — dissolved
 
@@ -257,9 +257,13 @@ If `full − no_sis` ≤ 0 macro-F1 averaged over 3 seeds, the result is reporte
 | 1 | `simulate.py` (shared macro lens, per-sample seeds, sharded + resumable) + `dataset.py` + `tests/test_pipeline.py` | 50-image pilot: θE in bounds, 3 classes, source GT aligned, identical macro-lens distribution across classes |
 | 2 | Full dataset generation (7k/1.5k/1.5k) | manifest hashes; equal class counts; zero NaNs; physics slice is a subset of test |
 | 3 | `train.py` + `evaluate.py` + gates + `cli.py` | tiny-overfit passes; G2/G3 green on a real checkpoint; train.py provably never sees test |
-| 4 | 3 seeds × 5 variants + 3 matched baselines × 3 seeds (24 runs) | every run has `metrics.json` + `manifest.json`; decision rule evaluated |
+| 4 | 3 seeds × 4 variants + 3 matched baselines × 3 seeds (21 runs) | every run has `metrics.json` + `manifest.json`; decision rule evaluated |
 | 5 | `figures.py`, `figures.py audit`, README, `docs/method.md`, `docs/limitations.md`, release tag, QR target | `audit` exits 0; poster numbers all traceable |
 | 6 | Thin Colab notebook (`notebooks/gravilens_colab.ipynb`) | a clean Colab runtime can `pip install` from the tagged release and run the pipeline end to end |
+
+Measured pilot (3 real triplets, CPU, 58-galaxy pool): **5.42 s/triplet**. Full 3,333 triplets
+≈ 5.0 h single-process; train/val/test shards can run concurrently. The pilot shard is
+`data/pilot/test/shard_000000.npz` (9 images, 3 matched triplets).
 
 Phase 0 is CPU-only. Phases 1–2 (generation) run concurrently with 0–3 on separate Colab runtimes.
 
@@ -268,7 +272,7 @@ Phase 0 is CPU-only. Phases 1–2 (generation) run concurrently with 0–3 on se
 1. `full`, `no_sis`, `no_sup` × 3 seeds — the reviewer-critical comparisons.
 2. 3 matched baselines × 3 seeds — the "we beat data-driven" sentence.
 3. `dist` × 3 seeds — only if the distortion question is still open.
-4. `base` — historical reference, disclosed, cheapest to drop.
+4. `base` is **not rerun**; its historical numbers are disclosed in text only.
 
 ### 8.2 Parameter matching procedure
 
@@ -289,7 +293,7 @@ Phase 0 is CPU-only. Phases 1–2 (generation) run concurrently with 0–3 on se
 - Pre-registered experiment tracker → the decision rule is a paragraph in `docs/method.md`.
 - A second physics inverse model (SIE + shear) → deferred to Route C, triggered by the §7.3 result.
 
-Kept deliberately: EMA flag, augmentation intensity ramp, the `dist` variant, `base` as a disclosed historical baseline.
+Kept deliberately: EMA flag, augmentation intensity ramp, the `dist` variant. `base` is historical only and is not rerun.
 
 ---
 
@@ -297,7 +301,7 @@ Kept deliberately: EMA flag, augmentation intensity ramp, the `dist` variant, `b
 
 1. `git clone && pip install -e . && pytest` passes on CPU in <2 minutes.
 2. `python -m gravilens generate --config configs/data.yaml` reproduces a 50-image sample bit-for-bit across two runs (hash equality).
-3. `python -m gravilens ablate --config configs/ablation.yaml` produces 24 runs, each with `metrics.json` + `manifest.json`; test metrics appear exactly once per run, after checkpoint selection.
+3. `python -m gravilens ablate --config configs/ablation.yaml` produces 21 runs, each with `metrics.json` + `manifest.json`; test metrics appear exactly once per run, after checkpoint selection.
 4. Every parameter of every model receives a gradient in the smoke backward pass (no dead parameters).
 5. G2 and G3 pass on the final checkpoint and are enforced by pytest.
 6. No test-set access inside `train.py` (asserted by a test using a spy loader).
@@ -318,7 +322,7 @@ Kept deliberately: EMA flag, augmentation intensity ramp, the `dist` variant, `b
 | R2 — the matched macro lens makes results worse | that is the point; the §7.3 null rule is pre-registered; worse-but-honest beats better-but-confounded |
 | R3 — lenstronomy/pyHalo/astropy version drift breaks the simulator | pin exact versions; the astropy `angular_diameter_distance` shim stays but is version-guarded; manifest records versions |
 | R4 — retuned baselines are stronger, weakening our F1 claim | accepted; param-matched comparison is the only defensible one |
-| R5 — 24 runs exceed the GPU budget | §8.1 priority order |
+| R5 — 21 runs exceed the GPU budget | §8.1 priority order |
 | R6 — effort split between generation and code | phases 1–2 run on a separate Colab runtime from phases 0–3 |
 
 ---
@@ -329,6 +333,6 @@ Kept deliberately: EMA flag, augmentation intensity ramp, the `dist` variant, `b
 - Model shape: two stacks, cross-attention moved to the front of the classifier stack.
 - Baselines: 3 data-driven, parameter-matched, no re-implemented physics baselines.
 - Legacy notebooks: deleted from the tree, retained in git history.
-- Compute budget: full — matched dataset regeneration + 3 seeds × 5 variants.
+- Compute budget: full — matched dataset regeneration + 3 seeds × 4 variants + 3 parameter-matched baselines × 3 seeds.
 - Delivery: public GitHub package + thin Colab driver.
 - Success criterion: reviewer-proof repo + honest results, not a higher F1.

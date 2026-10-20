@@ -16,13 +16,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "scipy>=1.10"]
 sim = [
   "lenstronomy==1.14.2",
   "pyHalo==1.4.6",
   "colossus",
   "mcfit",
   "astropy>=6",
+  "h5py>=3.10",
+  "scipy>=1.10",
+  "tqdm>=4.66",
 ]
 
 [tool.setuptools.packages.find]

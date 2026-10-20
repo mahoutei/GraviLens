@@ -2,7 +2,7 @@
 
 Physics-informed lens modelling for dark-matter substructure classification.
 
-**Status:** architecture v2, Phase 0. The API and the data format are not frozen
+**Status:** architecture v2, Phase 1. The API and the data format are not frozen
 until Phase 4.
 
 ## Install
@@ -28,8 +28,33 @@ pytest
 
 The suite runs on CPU in under two minutes. It covers the SIS coordinate
 convention and differentiability, the model variants, the no-dead-parameters
-gate, the source counterfactual gate, and the parameter-budget match for the
-three baselines.
+gate, the source counterfactual gate, the parameter-budget match for the
+three baselines, shard resume/corruption, and the matched-triplet gate.
+
+## Data
+
+The v2 dataset is regenerated from Galaxy10 DECals (2.54 GB, downloaded once
+into `data/raw/`). Each triplet shares one macro lens and one noise
+realisation; only the substructure differs.
+
+```bash
+# full dataset (train/val/test), resumable
+python -m gravilens.simulate --config configs/ablation.yaml
+
+# 3-triplet pilot
+python -m gravilens.simulate --data-root data/pilot --splits test \
+    --limit 3 --shard-size 9
+```
+
+Shards are atomic `.npz` files under `data/<root>/<split>/`; rerunning the
+same command resumes. A real triplet costs ~5.4 s on CPU. Inspect a split with:
+
+```bash
+python -m gravilens.dataset --data-root data/gravilens-v2 --split test
+```
+
+`data/` is gitignored. The Galaxy10 selection is `ans == 6` and
+`redshift < 0.02` (58 source galaxies); the same pool is used for every class.
 
 ## Model
 
@@ -47,9 +72,10 @@ one tensor.
 ## Layout
 
 ```
-gravilens/       package (config, physics, models; data/train/eval land next)
+gravilens/       package (config, physics, models, simulate, dataset)
 tests/           CPU gates
 configs/         YAML run configurations
+data/            generated shards (gitignored)
 notebooks/       thin Colab driver
 third_party/     vendored reference copy of DeepLenseSim (not imported)
 docs/            roadmap, method, limitations
